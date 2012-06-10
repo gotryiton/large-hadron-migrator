@@ -20,6 +20,8 @@ module Lhm
       @origin = table
       @name = table.destination_name
       @statements = []
+      @insert_trigger_additions = {}
+      @insert_joins = []
     end
 
     # Alter a table with a custom statement
@@ -39,6 +41,39 @@ module Lhm
     #
     def ddl(statement)
       statements << statement
+    end
+
+    # Adds joins to the chunked insert. Helpful if you would need to do an update
+    # after the change_table
+    #
+    # @example
+    #
+    #   Lhm.change_table(:users) do |m|
+    #     m.add_column(:comment, "VARCHAR(12) DEFAULT '0'")
+    #     m.join_on_insert(:people, :description, :comment, "people.user_id = users.id")
+    #   end
+    #
+    # @param [String] table Table to join to
+    # @param [String] origin_field Column in the origin (joined) table
+    # @param [String] destination_field Column in the destination table
+    # @param [String] statement Valid sql join statement
+    def join_on_insert(table, origin_field, destination_field, statement)
+      @insert_joins << { :table => table, :origin_field => origin_field, :destination_field => destination_field, :statement => statement }
+    end
+
+    # Adds additional columns to the trigger that is created for inserts.
+    #
+    # @example
+    #
+    #   Lhm.change_table(:users) do |m|
+    #     m.add_column(:comment, "VARCHAR(12) DEFAULT '0'")
+    #     m.insert_trigger(:comment, "SELECT comment FROM people WHERE NEW.id = people.id")
+    #   end
+    #
+    # @param [String] key Column to insert value
+    # @param [String] statement Valid sql query, can use NEW to reference the row in trigger
+    def insert_trigger(key, statement)
+      @insert_trigger_additions[key] = statement
     end
 
     # Add a column to a table
@@ -160,7 +195,7 @@ module Lhm
     def execute
       destination_create
       sql(@statements)
-      Migration.new(@origin, destination_read)
+      Migration.new(@origin, destination_read, @insert_trigger_additions, @insert_joins)
     end
 
     def destination_create

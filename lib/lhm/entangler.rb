@@ -40,8 +40,8 @@ module Lhm
       strip %Q{
         create trigger `#{ trigger(:ins) }`
         after insert on `#{ @origin.name }` for each row
-        replace into `#{ @destination.name }` (#{ @common.joined }) #{ SqlHelper.annotation }
-        values (#{ @common.typed("NEW") })
+        replace into `#{ @destination.name }` (#{ @common.combined_joined }) #{ SqlHelper.annotation }
+        values (#{ @common.combined_typed("NEW") })
       }
     end
 
